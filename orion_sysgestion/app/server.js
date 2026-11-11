@@ -99,7 +99,8 @@ async function pedirAcceso(usuario) {
     return { ok: true, url: destino.href };
   }
   const codigo = j && typeof j.error === 'string' ? j.error : '';
-  console.error(`El sistema de gestión rechazó el acceso: HTTP ${r.status} ${codigo}`);
+  const detalle = j && typeof j.detalle === 'string' ? ' — ' + j.detalle.slice(0, 300) : '';
+  console.error(`El sistema de gestión rechazó el acceso: HTTP ${r.status} ${codigo}${detalle}`);
   return { ok: false, mensaje: MENSAJES[codigo] || `El sistema de gestión no permitió el acceso (código ${r.status}).` };
 }
 

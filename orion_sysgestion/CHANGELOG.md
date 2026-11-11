@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.2
+
+- Si el sistema de gestión manda un campo `detalle` al rechazar el acceso, el Registro del add-on lo muestra (sirve para diagnosticar sin entrar al servidor).
+
 ## 0.1.1
 
 - Los avisos de error salen con código 200, para que Cloudflare u otro proxy no los reemplace por su página genérica ("502 Bad Gateway") y se vea el motivo real.
