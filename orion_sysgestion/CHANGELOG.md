@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.1
+
+- Los avisos de error salen con código 200, para que Cloudflare u otro proxy no los reemplace por su página genérica ("502 Bad Gateway") y se vea el motivo real.
+
 ## 0.1.0
 
 - Primera versión. Abre el sistema de gestión Orion del cliente desde el menú lateral de Home Assistant, sin pedir usuario ni clave.

@@ -1,5 +1,5 @@
 name: Orion SysGestion
-version: "0.1.0"
+version: "0.1.1"
 slug: orion_sysgestion
 description: Abre el sistema de gestión Orion del cliente dentro de Home Assistant, sin pedir clave
 url: https://github.com/Sysmika/orion-sysgestion

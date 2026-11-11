@@ -138,6 +138,8 @@ function pagina(res, codigo, cuerpo, frameOrigen) {
   res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orion SysGestion</title><style>${ESTILO}</style></head><body>${cuerpo}</body></html>`);
 }
 
+// Los avisos salen con 200 a propósito: si Home Assistant está detrás de Cloudflare u otro proxy,
+// un 5xx se reemplaza por la página genérica del proxy y la persona no ve el mensaje real.
 function aviso(res, codigo, titulo, texto, conReintento = true) {
   // Rutas relativas: con Ingress el add-on vive en /api/hassio_ingress/<token>/, no en la raíz.
   const boton = conReintento ? '<a class="btn" href="./">Volver a intentar</a>' : '';
@@ -153,7 +155,7 @@ async function inicio(req, res, usuario) {
   }
 
   const acceso = await pedirAcceso(usuario);
-  if (!acceso.ok) return aviso(res, 502, 'No se pudo abrir el sistema de gestión', acceso.mensaje);
+  if (!acceso.ok) return aviso(res, 200, 'No se pudo abrir el sistema de gestión', acceso.mensaje);
   pagina(res, 200,
     `<div class="marco"><div class="barra"><a href="abrir" target="_blank" rel="noopener">¿No carga o pide clave? Abrir en ventana nueva</a></div>` +
     `<iframe src="${esc(acceso.url)}" title="Orion SysGestion" allow="clipboard-write; camera" referrerpolicy="no-referrer"></iframe></div>`,
@@ -164,7 +166,7 @@ async function abrirEnVentana(req, res, usuario) {
   const problema = problemaConfig();
   if (problema) return aviso(res, 200, 'Falta configurar Orion SysGestion', problema, false);
   const acceso = await pedirAcceso(usuario);
-  if (!acceso.ok) return aviso(res, 502, 'No se pudo abrir el sistema de gestión', acceso.mensaje);
+  if (!acceso.ok) return aviso(res, 200, 'No se pudo abrir el sistema de gestión', acceso.mensaje);
   res.writeHead(302, { Location: acceso.url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   res.end();
 }
@@ -178,14 +180,15 @@ const servidor = http.createServer(async (req, res) => {
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); return res.end(); }
 
     const usuario = usuarioDe(req);
-    if (!usuario) return aviso(res, 403, 'Acceso no permitido', 'Orion SysGestion se abre solo desde el menú de Home Assistant.', false);
+    if (!usuario) { console.warn('Pedido rechazado: no vino por Ingress (IP ' + ipDe(req) + ')'); }
+    if (!usuario) return aviso(res, 200, 'Acceso no permitido', 'Orion SysGestion se abre solo desde el menú de Home Assistant.', false);
 
     if (ruta === '/') return await inicio(req, res, usuario);
     if (ruta === '/abrir') return await abrirEnVentana(req, res, usuario);
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('No encontrado');
   } catch (e) {
     console.error('Error inesperado:', e);
-    if (!res.headersSent) aviso(res, 500, 'Error inesperado', 'Probá de nuevo. Si sigue, avisale a Orion.');
+    if (!res.headersSent) aviso(res, 200, 'Error inesperado', 'Probá de nuevo. Si sigue, avisale a Orion.');
     else res.end();
   }
 });
