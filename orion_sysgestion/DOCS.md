@@ -23,6 +23,22 @@ La API key nunca llega al navegador: queda en la configuración del complemento.
 
 Después de cambiar la configuración, reiniciá el complemento.
 
+## Si no abre: diagnóstico
+
+Cuando el sistema no abre, el aviso tiene el botón **Ver diagnóstico**. Prueba cada eslabón de la cadena *Home Assistant → este complemento → sistema de gestión → Orion AR* y marca con ❌ el primero que falla:
+
+| Paso con ❌ | Dónde está el problema |
+| --- | --- |
+| Configuración del complemento | Falta o está mal la dirección o la API key. |
+| Este Home Assistant llega al sistema de gestión | Internet o DNS del Home Assistant, o el sitio está caído. |
+| Entrada para Nexus (`/sso/nexus.php`) | El sitio responde, pero falta la entrada para Nexus o da error de PHP. |
+| El sistema de gestión llega a Orion AR | El servidor del sistema no logra conectarse con Orion AR (ver el detalle: DNS, firewall, certificado, URL o service key de Orion AR mal configurada). Home Assistant está bien. |
+| El sistema valida la API key | La key, la instalación o el servicio no están habilitados en Orion AR. |
+
+El diagnóstico pide un acceso real para probar la API key; ese acceso no se muestra y vence solo a los 60 segundos.
+
+Para monitorear, `/salud` devuelve JSON con el resultado del último intento (`ultimo.ok`, `ultimo.codigo`, `ultimo.detalle`). Home Assistant lo usa además como watchdog.
+
 ## Si en el celular pide clave
 
 Algunos celulares, sobre todo iPhone, no guardan la sesión de un sitio mostrado dentro de otro. Si el sistema pide clave dentro de Home Assistant:
