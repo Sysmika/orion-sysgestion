@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.1.3
+
+- Nueva página **Diagnóstico** (botón "Ver diagnóstico" en cada aviso de error): prueba paso a paso la configuración, la conexión con el sistema de gestión, la entrada `/sso/nexus.php` y la validación con Orion AR, y marca con ❌ el primer paso que falla, con el código y el detalle del servidor.
+- El aviso `orion_ar_no_disponible` ahora dice claramente que es el sistema de gestión el que no logra hablar con Orion AR, no Home Assistant.
+- `/salud` devuelve JSON con el resultado del último intento, y Home Assistant lo usa como watchdog para reiniciar el add-on si se cuelga.
+- El registro muestra el motivo real de los errores de conexión (DNS, certificado, tiempo agotado) y avisa si `/sso/nexus.php` no responde JSON.
+
 ## 0.1.2
 
 - Si el sistema de gestión manda un campo `detalle` al rechazar el acceso, el Registro del add-on lo muestra (sirve para diagnosticar sin entrar al servidor).

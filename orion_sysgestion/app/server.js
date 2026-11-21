@@ -21,6 +21,7 @@ const HOST = E.HOST || '0.0.0.0';
 const SUPERVISOR_IP = '172.30.32.2';
 const DEV_USER = E.DEV_USER || ''; // solo pruebas fuera de Home Assistant
 const TIMEOUT_MS = 8000;
+const VERSION = '0.1.3';
 
 // ---- configuración del complemento (/data/options.json) ----
 function cargarOpciones() {
@@ -61,12 +62,19 @@ const MENSAJES = {
   servicio_inactivo: 'Esta instalación no tiene habilitado Orion SysGestion. Comunicate con Orion.',
   dominio_no_coincide: 'Esta instalación está habilitada para otro sistema de gestión. Revisá la dirección en la configuración del complemento.',
   usuario_no_encontrado: 'El usuario del sistema asignado a esta instalación no existe o está inactivo.',
-  orion_ar_no_disponible: 'Orion no responde en este momento. Probá de nuevo en unos minutos.',
+  orion_ar_no_disponible: 'El sistema de gestión no pudo verificar la API key con Orion AR: Orion AR no le respondió. No es un problema de este Home Assistant. Probá en unos minutos; si sigue, avisale a Orion.',
   demasiados_intentos: 'Demasiados intentos seguidos. Esperá un minuto y volvé a abrir.',
   service_key_invalida: 'El sistema de gestión no está bien conectado con Orion. Comunicate con Orion.',
 };
 
+// Último intento, para /salud y la página de diagnóstico. Nunca guarda la dirección del acceso.
+let ULTIMO = null;
+function anotar(ok, etapa, extra = {}) {
+  ULTIMO = { ok, etapa, fecha: new Date().toISOString(), ...extra };
+}
+
 async function pedirAcceso(usuario) {
+  const t0 = Date.now();
   let r;
   try {
     r = await fetch(OPC.sistema + '/sso/nexus.php', {
@@ -83,8 +91,10 @@ async function pedirAcceso(usuario) {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (e) {
-    console.error('Sin respuesta del sistema de gestión:', e.name === 'TimeoutError' ? 'tiempo agotado' : e.message);
-    return { ok: false, mensaje: 'No se pudo conectar con el sistema de gestión. Revisá la conexión a internet o probá en unos minutos.' };
+    const motivo = e.name === 'TimeoutError' ? `tiempo agotado (${TIMEOUT_MS / 1000} s)` : (e.cause && (e.cause.code || e.cause.message)) || e.message;
+    console.error('Sin respuesta del sistema de gestión:', motivo);
+    anotar(false, 'conexion', { motivo: String(motivo).slice(0, 200), ms: Date.now() - t0 });
+    return { codigo: 'sin_conexion', detalle: String(motivo).slice(0, 300), ok: false, mensaje: 'No se pudo conectar con el sistema de gestión. Revisá la conexión a internet o probá en unos minutos.' };
   }
   let j = null;
   try { j = await r.json(); } catch { /* respuesta no JSON */ }
@@ -94,14 +104,18 @@ async function pedirAcceso(usuario) {
     // Solo se abre una dirección del mismo sistema configurado: nunca otro sitio.
     if (!destino || destino.origin !== ORIGEN_SISTEMA) {
       console.error('El sistema devolvió una dirección de otro sitio; se rechaza.');
-      return { ok: false, mensaje: 'El sistema de gestión respondió algo inesperado. Comunicate con Orion.' };
+      anotar(false, 'respuesta', { http: r.status, codigo: 'url_otro_sitio', ms: Date.now() - t0 });
+      return { codigo: 'url_otro_sitio', detalle: '', ok: false, mensaje: 'El sistema de gestión respondió algo inesperado. Comunicate con Orion.' };
     }
+    anotar(true, 'ok', { http: r.status, ms: Date.now() - t0 });
     return { ok: true, url: destino.href };
   }
   const codigo = j && typeof j.error === 'string' ? j.error : '';
-  const detalle = j && typeof j.detalle === 'string' ? ' — ' + j.detalle.slice(0, 300) : '';
-  console.error(`El sistema de gestión rechazó el acceso: HTTP ${r.status} ${codigo}${detalle}`);
-  return { ok: false, mensaje: MENSAJES[codigo] || `El sistema de gestión no permitió el acceso (código ${r.status}).` };
+  const det = j && typeof j.detalle === 'string' ? j.detalle.slice(0, 300) : (j ? '' : 'la respuesta no es JSON (¿está publicada /sso/nexus.php?)');
+  const detalle = det ? ' — ' + det : '';
+  console.error(`El sistema de gestión rechazó el acceso: HTTP ${r.status} ${codigo || '(sin código)'}${detalle}`);
+  anotar(false, 'rechazo', { http: r.status, codigo: codigo || null, detalle: det || null, ms: Date.now() - t0 });
+  return { codigo: codigo || `http_${r.status}`, detalle: det, ok: false, mensaje: MENSAJES[codigo] || `El sistema de gestión no permitió el acceso (código ${r.status}).` };
 }
 
 // ---- páginas ----
@@ -119,7 +133,8 @@ h1{font-size:18px;margin:0 0 10px}p{margin:0 0 16px;color:var(--muted)}
 .marco{position:fixed;inset:0;display:flex;flex-direction:column}
 .marco iframe{flex:1;border:0;width:100%;background:#fff}
 .barra{display:flex;justify-content:flex-end;gap:12px;padding:4px 10px;font-size:13px;background:var(--card)}
-.barra a{color:var(--acc);text-decoration:none}`;
+.barra a{color:var(--acc);text-decoration:none}
+.pasos{list-style:none;padding:0;margin:0 0 16px}.pasos li{margin:0 0 12px}.pasos span{color:var(--muted)}`;
 
 function pagina(res, codigo, cuerpo, frameOrigen) {
   const csp = [
@@ -143,7 +158,7 @@ function pagina(res, codigo, cuerpo, frameOrigen) {
 // un 5xx se reemplaza por la página genérica del proxy y la persona no ve el mensaje real.
 function aviso(res, codigo, titulo, texto, conReintento = true) {
   // Rutas relativas: con Ingress el add-on vive en /api/hassio_ingress/<token>/, no en la raíz.
-  const boton = conReintento ? '<a class="btn" href="./">Volver a intentar</a>' : '';
+  const boton = conReintento ? '<a class="btn" href="./">Volver a intentar</a> <a class="btn sec" href="estado">Ver diagnóstico</a>' : '';
   pagina(res, codigo, `<div class="centro"><div class="card"><h1>${esc(titulo)}</h1><p>${esc(texto)}</p>${boton}</div></div>`);
 }
 
@@ -172,11 +187,67 @@ async function abrirEnVentana(req, res, usuario) {
   res.end();
 }
 
+// ---- diagnóstico: qué parte de la cadena falla ----
+// Cadena: Home Assistant → (este add-on) → sistema de gestión → Orion AR.
+async function probarSistema() {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(ORIGEN_SISTEMA + '/', { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS) });
+    return { ok: r.status < 500, texto: `Respondió HTTP ${r.status} en ${Date.now() - t0} ms.` };
+  } catch (e) {
+    const motivo = e.name === 'TimeoutError' ? `tiempo agotado (${TIMEOUT_MS / 1000} s)` : (e.cause && (e.cause.code || e.cause.message)) || e.message;
+    return { ok: false, texto: `No responde: ${motivo}.` };
+  }
+}
+
+async function diagnostico(usuario) {
+  const pasos = [];
+  const problema = problemaConfig();
+  pasos.push({ nombre: 'Configuración del complemento', ok: !problema, texto: problema || `Sistema: ${OPC.sistema}. API key cargada (${OPC.apiKey.length} caracteres).` });
+  if (problema) return pasos;
+
+  const sis = await probarSistema();
+  pasos.push({ nombre: 'Este Home Assistant llega al sistema de gestión', ok: sis.ok, texto: sis.texto + (sis.ok ? '' : ' Revisá internet del Home Assistant, el DNS y que el sitio esté en línea.') });
+  if (!sis.ok) return pasos;
+
+  // Pide un acceso real (el token no se muestra y vence solo a los 60 s): es la única forma de probar la API key y Orion AR.
+  const a = await pedirAcceso(usuario + ' (diagnóstico)');
+  if (a.ok) {
+    pasos.push({ nombre: 'Entrada para Nexus (/sso/nexus.php)', ok: true, texto: 'Responde bien.' });
+    pasos.push({ nombre: 'El sistema de gestión valida la API key con Orion AR', ok: true, texto: 'Válida, instalación activa.' });
+    return pasos;
+  }
+  const delSistema = !['sin_conexion', 'url_otro_sitio'].includes(a.codigo) && !/^http_/.test(a.codigo);
+  pasos.push({ nombre: 'Entrada para Nexus (/sso/nexus.php)', ok: delSistema, texto: delSistema ? 'Responde.' : `Falla: ${a.codigo}${a.detalle ? ' — ' + a.detalle : ''}.` });
+  if (delSistema) {
+    const orion = a.codigo === 'orion_ar_no_disponible' || a.codigo === 'service_key_invalida';
+    pasos.push({
+      nombre: orion ? 'El sistema de gestión llega a Orion AR' : 'El sistema de gestión valida la API key con Orion AR',
+      ok: false,
+      texto: `${a.mensaje} Código: ${a.codigo}${a.detalle ? '. Detalle del servidor: ' + a.detalle : ''}.`,
+    });
+  }
+  return pasos;
+}
+
+async function paginaEstado(req, res, usuario) {
+  const pasos = await diagnostico(usuario);
+  const filas = pasos.map((p) => `<li><b>${p.ok ? '✅' : '❌'} ${esc(p.nombre)}</b><br><span>${esc(p.texto)}</span></li>`).join('');
+  const todoOk = pasos.every((p) => p.ok);
+  pagina(res, 200, `<div class="centro"><div class="card"><h1>Diagnóstico de Orion SysGestion</h1>` +
+    `<p>${todoOk ? 'Todo funciona.' : 'El primer paso con ❌ es el que falla.'}</p><ul class="pasos">${filas}</ul>` +
+    `<a class="btn" href="estado">Probar de nuevo</a> <a class="btn sec" href="./">Abrir el sistema</a></div></div>`);
+}
+
 // ---- servidor ----
 const servidor = http.createServer(async (req, res) => {
   try {
     const ruta = new URL(req.url, 'http://x').pathname.replace(/\/+$/, '') || '/';
-    if (ruta === '/salud') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
+    if (ruta === '/salud') {
+      // Para el watchdog y para monitorear: el add-on está vivo; "ultimo" es el resultado del último intento de abrir el sistema.
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify({ vivo: true, version: VERSION, configurado: !problemaConfig(), ultimo: ULTIMO }));
+    }
     if (req.method === 'HEAD') { res.writeHead(200, { 'Cache-Control': 'no-store' }); return res.end(); } // nunca emite accesos
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); return res.end(); }
 
@@ -186,6 +257,7 @@ const servidor = http.createServer(async (req, res) => {
 
     if (ruta === '/') return await inicio(req, res, usuario);
     if (ruta === '/abrir') return await abrirEnVentana(req, res, usuario);
+    if (ruta === '/estado') return await paginaEstado(req, res, usuario);
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('No encontrado');
   } catch (e) {
     console.error('Error inesperado:', e);
