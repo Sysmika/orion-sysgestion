@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.4
+
+- El panel aparece también para los usuarios de Home Assistant que no son administradores (el personal del comercio u oficina). En Nexus lo ven los clientes de Comercio y Oficina; en el equipo demo, solo los usuarios de esos rubros.
+
 ## 0.1.3
 
 - Nueva página **Diagnóstico** (botón "Ver diagnóstico" en cada aviso de error): prueba paso a paso la configuración, la conexión con el sistema de gestión, la entrada `/sso/nexus.php` y la validación con Orion AR, y marca con ❌ el primer paso que falla, con el código y el detalle del servidor.
