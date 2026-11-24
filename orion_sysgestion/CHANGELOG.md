@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.1.4
+
+- El panel se permite también a usuarios de Home Assistant que no son administradores. Lo usa el equipo demo de Nexus: los usuarios de Oficina (`pedro`) y Comercio (`maria`) ven SysGestion. En clientes reales el menú de Nexus sigue mostrando a los no administradores solo los dashboards.
+
 ## 0.1.3
 
 - Nueva página **Diagnóstico** (botón "Ver diagnóstico" en cada aviso de error): prueba paso a paso la configuración, la conexión con el sistema de gestión, la entrada `/sso/nexus.php` y la validación con Orion AR, y marca con ❌ el primer paso que falla, con el código y el detalle del servidor.

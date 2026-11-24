@@ -1,5 +1,5 @@
 name: Orion SysGestion
-version: "0.1.3"
+version: "0.1.4"
 slug: orion_sysgestion
 description: Abre el sistema de gestión Orion del cliente dentro de Home Assistant, sin pedir clave
 url: https://github.com/Sysmika/orion-sysgestion
@@ -14,6 +14,7 @@ ingress_port: 8099
 watchdog: http://[HOST]:[PORT:8099]/salud
 panel_icon: mdi:store-cog
 panel_title: SysGestion
+panel_admin: false     # equipo demo de Nexus: lo ven los usuarios de Oficina y Comercio, que no son administradores
 options:
   sistema_url: ""
   api_key: ""
