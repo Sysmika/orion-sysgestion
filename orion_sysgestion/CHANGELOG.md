@@ -2,7 +2,7 @@
 
 ## 0.1.4
 
-- El panel aparece también para los usuarios de Home Assistant que no son administradores (el personal del comercio u oficina). En Nexus lo ven los clientes de Comercio y Oficina; en el equipo demo, solo los usuarios de esos rubros.
+- El panel se permite también a usuarios de Home Assistant que no son administradores. Lo usa el equipo demo de Nexus: los usuarios de Oficina (`pedro`) y Comercio (`maria`) ven SysGestion. En clientes reales el menú de Nexus sigue mostrando a los no administradores solo los dashboards.
 
 ## 0.1.3
 

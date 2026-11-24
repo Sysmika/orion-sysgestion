@@ -14,7 +14,7 @@ ingress_port: 8099
 watchdog: http://[HOST]:[PORT:8099]/salud
 panel_icon: mdi:store-cog
 panel_title: SysGestion
-panel_admin: false     # lo usan las personas del comercio u oficina, que no son administradoras
+panel_admin: false     # equipo demo de Nexus: lo ven los usuarios de Oficina y Comercio, que no son administradores
 options:
   sistema_url: ""
   api_key: ""
